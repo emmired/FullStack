@@ -1,20 +1,19 @@
-const express = require('express')
-const User = require('../models/User')
-const mongoose = require('mongoose')
-const router = express.Router()
-const bcrypt = require('bcryptjs')
-const jwt = require('jsonwebtoken')
-const crypto = require('crypto')
+const express = require('express');
+const User = require('../models/User');
+const router = express.Router();
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const authenticate = require('../middleware/authenticate');
 
-// JWT Secret - replace this with your actual secret or use an environment variable
-const JWT_SECRET = crypto.randomBytes(64).toString('hex')
+// Use the generated secret key
+const JWT_SECRET = '9878924f604a926a44cacd21fd5e9b8061c2beae286f570902d16b0229f224f9fcf4e3d046e682e614c6971327b49409626de20248677f6fcbaaba3ef063147a'; // Replace with your actual generated secret key
 
 // Register a new user
 router.post('/register', async (req, res) => {
-    const { name, email, password, age } = req.body
+    const { name, email, password, age } = req.body;
 
     try {
-        const existingUser = await User.findOne({ email })
+        const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).send({
                 success: false,
@@ -22,18 +21,19 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const user = new User({ name, email, password: hashedPassword, age });
+        const user = new User({ name, email, password, age });
         await user.save();
 
         const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
 
+        // Send the token in a cookie
+        res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'strict' });
+
         res.status(201).send({
             success: true,
             message: 'User registered successfully',
-            token,
             user: {
+                token,
                 id: user._id,
                 name: user.name,
                 email: user.email,
@@ -60,7 +60,7 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await user.isValidPassword(password);
         if (!isMatch) {
             return res.status(400).send({
                 success: false,
@@ -68,14 +68,16 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Generate a token
         const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
+
+        // Send the token in a cookie
+        res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'strict' });
 
         res.status(200).send({
             success: true,
             message: 'Logged in successfully',
-            token,
             user: {
+                token,
                 id: user._id,
                 name: user.name,
                 email: user.email,
@@ -90,141 +92,45 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Create a new user
-router.post('/users', async (req, res) => {
-    const user = new User(req.body);
-    try {
-        const result = await user.save();
-        res.status(201).send({
-            success: true,
-            user: result,
-            request: req.body // Include request body in the response
-        });
-    } catch (err) {
-        if (err.code === 11000) { // Check if the error code is for duplicate key
-            res.status(400).send({
-                success: false,
-                error: 'Duplicate key error: A user with this email already exists.',
-                request: req.body // Include request body in the response even on error
-            });
-        } else {
-            res.status(400).send({
-                success: false,
-                error: err.message,
-                request: req.body // Include request body in the response even on error
-            });
-        }
-    }
+// Logout a User
+router.post('/logout', (req, res) => {
+    res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'strict' });
+    res.status(200).send({
+        success: true,
+        message: 'Logged out successfully'
+    });
 });
 
-// Get all users
-router.get('/users', async (req, res) => {
-    try {
-        const users = await User.find();
-        res.status(200).send({
-            success: true,
-            users: users,
-            request: {
-                query: req.query,
-                params: req.params,
-                headers: req.headers,
-                body: req.body
-            }
-        });
-    } catch (err) {
-        res.status(500).send({
+// Display JWT Token for testing purpose
+router.get('/token', (req, res) => {
+    const crypto = require('crypto');
+
+    // Generate a random secret key
+    const secretKey = crypto.randomBytes(64).toString('hex');
+    
+    console.log('Generated JWT Secret Key:', secretKey);
+    
+
+    if (!secretKey) {
+        return res.status(404).send({
             success: false,
-            error: err.message,
-            request: {
-                query: req.query,
-                params: req.params,
-                headers: req.headers,
-                body: req.body
-            }
+            message: 'No token found'
         });
     }
+
+    res.status(200).send({
+        success: true,
+        secretKey
+    });
 });
 
-// Get a user by ID
-router.get('/users/:id', async (req, res) => {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        return res.status(400).send({
-            success: false,
-            error: 'Invalid ID format',
-            request: req.params
-        });
-    }
-    try {
-        const user = await User.findById(req.params.id);
-        if (!user) {
-            return res.status(404).send({
-                success: false,
-                error: 'User not found',
-                request: req.params
-            });
-        }
-        res.status(200).send({
-            success: true,
-            user: user,
-            request: req.params
-        });
-    } catch (err) {
-        res.status(500).send({
-            success: false,
-            error: err.message,
-            request: req.params
-        });
-    }
-});
-
-// Update a user by ID
-router.put('/users/:id', async (req, res) => {
-    try {
-        const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-        if (!user) {
-            return res.status(404).send({
-                success: false,
-                error: 'User not found',
-                request: req.params
-            });
-        }
-        res.status(200).send({
-            success: true,
-            user: user,
-            request: req.body // Include request body in the response
-        });
-    } catch (err) {
-        res.status(500).send({
-            success: false,
-            error: err.message,
-            request: req.body // Include request body in the response even on error
-        });
-    }
-});
-
-// Delete a user by ID
-router.delete('/users/:id', async (req, res) => {
-    try {
-        const user = await User.findByIdAndDelete(req.params.id);
-        if (!user) {
-            return res.status(404).send({
-                success: false,
-                error: 'User not found',
-                request: req.params
-            });
-        }
-        res.status(200).send({
-            success: true,
-            message: 'User deleted successfully',
-            request: req.params
-        });
-    } catch (err) {
-        res.status(500).send({
-            success: false,
-            error: err.message,
-            request: req.params
-        });
-    }
+// Example of a protected route
+router.get('/protected', authenticate, (req, res) => {
+    res.send({
+        success: true,
+        message: 'You have accessed a protected route',
+        user: req.user
+    });
 });
 
 module.exports = router;
