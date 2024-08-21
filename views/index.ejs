@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Posts</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+        }
+
+        .card {
+            background: #fff;
+            border: #ccc 1px solid;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .card img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto 10px;
+        }
+
+        .card h5 {
+            margin: 0 0 10px;
+        }
+
+        .card p {
+            margin: 0 0 10px;
+        }
+
+        .list-group {
+            list-style: none;
+            padding: 0;
+        }
+
+        .list-group-item {
+            padding: 10px;
+            border: #ccc 1px solid;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="mt-5">Posts</h1>
+        <div class="row">
+            <% posts.forEach(post=> { %>
+                <div class="card">
+                    <p>Posted by: <a href="/profile/<%= post.user._id %>"><%= post.user %></a></p>
+                    <p>User ID: <%= userId %></p>
+                    <img src="<%= post.imageUrl %>" alt="<%= post.caption %>">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <%= post.caption %>
+                        </h5>
+                        <p class="card-text">Posted by: <%= post.user.name %>
+                        </p>
+                        <p class="card-text"><strong>
+                                <%= post.likes.length %>
+                            </strong> Likes</p>
+                        <h6>Comments</h6>
+                        <ul class="list-group">
+                            <% post.comments.forEach(comment=> { %>
+                                <li class="list-group-item">
+                                    <strong>
+                                        <%= comment.user.name %>:
+                                    </strong>
+                                    <%= comment.text %>
+                                </li>
+                                <% }) %>
+                        </ul>
+                        <form id="like-form-<%= post._id %>" action="/api/posts/<%= post._id %>/like" method="POST">
+                            <% const likedByCurrentUser = post.likes.map(like => like._id.toString()).includes(userId); %>
+                            <button type="button" id="like-button-<%= post._id %>">
+                                <%= likedByCurrentUser ? 'Unlike' : 'Like' %>
+                            </button>
+                            <span><%= post.imageUrl %></span>
+                            (<span id="like-count-<%= post._id %>">
+                                <%= post.likes.length %>
+                            </span>)
+                        </form>
+                        <form action="/api/posts/<%= post._id %>/comment" method="POST">
+                            <input type="text" name="comment" placeholder="Add a comment" required>
+                            <button type="submit">Comment</button>
+                        </form>
+                    </div>
+                </div>
+                <% }) %>
+        </div>
+    </div>
+
+    <script>
+
+        
+        const currentUser = "<%= userId %>"
+        console.log(currentUser);
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`
+            const parts = value.split(`; ${name}=`)
+            if (parts.length === 2) return parts.pop().split(';').shift()
+        }
+
+        // Example: Get the token from a cookie named 'token'
+        const token = getCookie('token')        
+
+        document.querySelectorAll('[id^="like-button-"]').forEach(button => {
+            button.addEventListener('click', async function (e) {
+                console.log(e);
+                
+                const postId = this.id.split('-')[2] // Extract the post ID from the button ID
+                const form = document.getElementById(`like-form-${postId}`)
+                const likeCountSpan = document.getElementById(`like-count-${postId}`)
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}` // Replace with your JWT token
+                        }
+                    })
+
+                    const data = await response.json()
+
+                    if (data.success) {
+                        // Update the like button text and count
+                        console.log(data.post.likes);
+                        
+                        const likeButton = document.getElementById(`like-button-${postId}`)
+                        likeButton.textContent = data.post.likes.includes(currentUser) ? 'Unlike' : 'Like'
+                        likeCountSpan.textContent = data.post.likes.length
+                        console.log(data.post.likes.length);
+                        
+                    } else {
+                        alert('Error liking the post: ' + data.message)
+                    }
+                } catch (error) {
+                    console.error('Error:', error)
+                }
+            })
+        });
+    </script>
+
+    <body>
+    </body>
+
+</html>

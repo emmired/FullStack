@@ -3,7 +3,19 @@ const Schema = mongoose.Schema;
 const bcrypt = require('bcryptjs');
 
 const userSchema = new Schema({
-    name: {
+    firstName: {
+        type: String,
+        required: true
+    },
+    lastName: {
+        type: String,
+        required: true
+    },
+    otherName: {
+        type: String,
+        required: true
+    },
+    displayName: {
         type: String,
         required: true
     },
@@ -19,7 +31,16 @@ const userSchema = new Schema({
     age: {
         type: Number,
         required: true
-    }
+    },
+    following:[{
+        type: Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    followers:[{
+        type: Schema.Types.ObjectId,
+        ref: 'User'        
+    }],
+    posts: [{ type: Schema.Types.ObjectId, ref: 'Post' }] 
 }, { timestamps: true });
 
 // Hash the password before saving the user

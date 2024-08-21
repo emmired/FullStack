@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+        }
+        .profile-header {
+            text-align: center;
+            padding: 20px;
+            background: #fff;
+            border-bottom: #ccc 1px solid;
+        }
+        .profile-info {
+            display: flex;
+            justify-content: space-around;
+            background: #fff;
+            border-bottom: #ccc 1px solid;
+            padding: 20px;
+        }
+        .profile-info div {
+            text-align: center;
+        }
+        .posts {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            background: #fff;
+            padding: 20px;
+        }
+        .post-card {
+            background: #fff;
+            border: #ccc 1px solid;
+            margin: 10px;
+            border-radius: 5px;
+            padding: 20px;
+            width: 30%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .post-card img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="profile-header">
+            <h1><%= user.name %>'s Profile</h1>
+        </div>
+        <div class="profile-info">
+            <div>
+                <h3>Followers</h3>
+                <p><%= user.followers.length %></p>
+            </div>
+            <div>
+                <h3>Following</h3>
+                <p><%= user.following.length %></p>
+            </div>
+        </div>
+        <div class="posts">
+            <% user.posts.forEach(post => { %>
+                <div class="post-card">
+                    <img src="\<%= post.imageUrl %>" alt="<%= post.caption %>">
+                    <div class="post-body">
+                        <h5><%= post.caption %></h5>                        <p><strong><%= post.likes.length %></strong> Likes</p>
+                        <h6>Comments</h6>
+                        <ul>
+                            <% post.comments.forEach(comment => { %>
+                                <li><strong><%= comment.user.name %>:</strong> <%= comment.text %></li>
+                            <% }) %>
+                        </ul>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    </div>
+</body>
+</html>
